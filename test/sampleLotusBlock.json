@@ -1,0 +1,79 @@
+{
+  "Miner": "t01004",
+  "Ticket": {
+    "VRFProof": "jKQKTl/iP46XGH02aqEuc+dzmuyDrQi0oVvNNw9iuBS2v6IJGZxBLn8FtNXfyRQMCn+9gDIDu2TGfWm9e5OGEnGHdCEiQXmq9qqQxvZgTpKYJbj3vHFI/YBItWuaMrUe"
+  },
+  "EPostProof": {
+    "Proof": "kvcfnqWYY8tg3KiJxJNhycI66kP41Pmjoh1emwPYDJKWfR18Itp4oANOCKEvwpmxkY+zcHnZXvLbCx8sa30pll3iIvzGe/E503EZgU2wDPbxlzrDsmhlzfcYj2S5p3q7E+o7XP9PHrOtC/FuAoxXkcwt6DfNIASiMSpSHK88CcnPYPCS4fnEoYpLIANrj1Gegl8lruItANYruw0d5flKSHdO5FmKxmYEk5xr/GjTvG2TdtaSEy7gK4Rl7exP54AX",
+    "PostRand": "mQzZ3oHURwAvDXoGpdHrnbr0dCWiASKLwEtJPTGkeLtIHXCmCg49fLjQNTmtGClLFucmXWziUmnXJZFVQBC01rF3WdY4LyWzdcK3zyW7i4HQF2uH8JNqfxdQX0FGhHAh",
+    "Candidates": [
+      {
+        "Partial": "uf+HQU0GnSIKn7x7IHUm2zouWCOtxPC6sgYn4os+2T0=",
+        "SectorID": 43,
+        "ChallengeIndex": 0
+      }
+    ]
+  },
+  "Parents": [
+    {
+      "/": "bafy2bzaceda2zfwrgmacjdb6jftjf4yejexpexml2of6r7xt6bmuqcuov54rs"
+    },
+    {
+      "/": "bafy2bzacec6642qcvgnmhqg5ziikopcbsucd5ctmsi7yph6r43dhtrquogie6"
+    },
+    {
+      "/": "bafy2bzaceamr6ug53jbcmgm2gajxyipchxuc3crcn77fhqtckej7pg5gzxrl4"
+    }
+  ],
+  "ParentWeight": "32025135",
+  "Height": 2905,
+  "ParentStateRoot": {
+    "/": "bafy2bzacecgpp6z5tesnzg34a2gh4tazcac2f3lfcxikokliv7sfvhnuditwa"
+  },
+  "ParentMessageReceipts": {
+    "/": "bafy2bzacebyepzgiotcuf5d6f6je36mr26vqsy2pzwine33ofj3ewsw7luay2"
+  },
+  "Messages": {
+    "BlsMessages": [
+      {
+        "To": "t01413",
+        "From": "t3u6ulabzqjrdr4wcktwfufihgpw4lra7ecoefhjc6cpvb2vx3scr46tsggi7nx4uksdidxmqahlk6pc5minsq",
+        "Nonce": 110,
+        "Value": "0",
+        "GasPrice": "1",
+        "GasLimit": "1000000",
+        "Method": 2,
+        "Params": "hBgaWCCiHFs5NaFoKIfbT43lxO51t3c2M5wjzSMIR4Zod1T+GxkKnoEZM+U="
+      },
+      {
+        "To": "t03",
+        "From": "t3u6ulabzqjrdr4wcktwfufihgpw4lra7ecoefhjc6cpvb2vx3scr46tsggi7nx4uksdidxmqahlk6pc5minsq",
+        "Nonce": 111,
+        "Value": "0",
+        "GasPrice": "0",
+        "GasLimit": "1000000",
+        "Method": 5,
+        "Params": "gYGCilgg/L7qzPMW0in+p7FK8sRPhvMk3Utfh5ENiTlrhqpPDQ8aP4AAAABYMQOnqLAHMExHHlhKnYtCoOZ9uLiD5BOIU6ReE+odVvuQo89ORjI+2/KKkNA7sgA61edDAIULG///////////G3//////////QEBYYQKYZHjForZ8PinmiszOd4r6BqNeY/bsgJJ4jS8uBMQb1x/Wvavv4BHHQfpw39lq9SATG+D2jd0+5QEKCkTtmXu0v3ial12CcNV4WKtHNIGzXZrF/4YHXjy7ZYOIcvUuAYZYYQKvKK939WoqBcKiidLaqksc8Ild1jC7I29nNCEeEETKzpDzCwg3P5IcbLxO+y4hOlcS2myj443wIyL95DX2hivgsXRdI1mRfd2VW0hSF/bxANkxEmWQnlG8GiPLUrduXyc="
+      },
+      {
+        "To": "t01100",
+        "From": "t3v45qvfi3gwyhdgu5qnd7t4r332d25fnlylahz3hdvaxgxn6tgldxae6xliqwmrctttcxfhu55qf3jirqjlfq",
+        "Nonce": 585,
+        "Value": "0",
+        "GasPrice": "1",
+        "GasLimit": "1000000",
+        "Method": 2,
+        "Params": "hBsAAAACIwAAGlggEIyCRnH0/PEUC5QdWYiERzUcuTALSxy9K4Wz8QaeMS0ZC0uBGUpI"
+      }
+    ],
+    "SecpkMessages": []
+  },
+  "Timestamp": 1575647340,
+  "BlockSig": {
+    "Type": "bls",
+    "Data": "jlRvhIIynpsryVELGoIy0faOXgkext/NLVQl+HqKCGacVxJpKenx33s3BLqoM8ghEZXyIHqYYYlJTqhSM1Ebokwi7e85sVL8s1qEFr7Z1KbvK8s0KmZeyGcVDPsDNLCc"
+  },
+  "cid": {
+    "/": "bafy2bzacebnqyf7m3zhgc3xiwtztyfpetehdcozcr4k5h4idcs6rdfjurzdi6"
+  }
+}

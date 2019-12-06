@@ -14,8 +14,33 @@ const setFromHeight = (height) => {
   throw new Error('unhandled setFromHeight case')
 }
 
+const shapeBlock = (block) => {
+  const { BlsMessages, SecpkMessages } = block.Messages;
+
+  const messages = [
+    ...BlsMessages.map(m => ({ ...m, type: 'BlsMessage' })),
+    ...SecpkMessages.map(m => ({ ...m, type: 'SecpkMessage' })),
+  ];
+
+  const shapedBlock = {
+    cid: block.cid,
+    header: {
+      miner: block.Miner,
+      tickets: [block.Ticket],
+      parents: block.Parents,
+      parentWeight: block.ParentWeight,
+      height: block.Height,
+      timestamp: block.Timestamp,
+      blocksig: block.BlockSig.Data,
+    },
+    messages: messages,
+    messageReceipts: [],
+  };
+  return shapedBlock
+}
+
 class Lotus {
-  constructor({jsonrpcEndpoint}) {
+  constructor({ jsonrpcEndpoint } = {}) {
     this.cache = {};
     this.seenParents = new Set();
     this.jsonrpcEndpoint = jsonrpcEndpoint || 'http://127.0.0.1:1234/rpc/v0';
@@ -33,11 +58,15 @@ class Lotus {
 
   cacheBlock = block => {
     if (this.cache[block.Height]) {
-      this.cache[block.Height].push(block);
+      this.cache[block.Height].push(shapeBlock(block));
     } else {
-      this.cache[block.Height] = [block];
+      this.cache[block.Height] = [shapeBlock(block)];
     }
   };
+
+  getChain = () => {
+    return this.cache
+  }
 
   getBlockMessages = messageHash =>
     this.lotusJSON('ChainGetBlockMessages', messageHash);
@@ -68,7 +97,8 @@ class Lotus {
 
   getBlock = async blockHash => {
     const block = await this.lotusJSON('ChainGetBlock', blockHash);
-    block.Cid = blockHash;
+    // add the block's cid back onto the block metadata for ease of use
+    block.cid = blockHash;
     return block;
   };
 
@@ -90,4 +120,4 @@ class Lotus {
   };
 }
 
-module.exports = { Lotus }
+module.exports = { Lotus, shapeBlock };
