@@ -1,5 +1,4 @@
 const axios = require('axios')
-const { uuid } = require('uuidv4');
 
 const setToHeight = (height) => {
   if (!height) return 'latest'
@@ -26,7 +25,7 @@ class Lotus {
       jsonrpc: '2.0',
       method: `Filecoin.${method}`,
       params: [...params],
-      id: uuid(),
+      id: 1,
     });
     return data.result;
   };
@@ -88,18 +87,4 @@ class Lotus {
   };
 }
 
-const lotus = new Lotus()
-
-const explore = async () => {
-  await lotus.explore()
-  console.log(lotus.database)
-}
-
-explore()
-/*
-for now stubbing these because i can't get it to work yet
-const getTipsetByHeight = (height) => lotusJSON('ChainGetTipSetByHeight', 500, {height: 200, cids: [], blks: []})
-*/
-
-
-// explore({ fromHeight: 200 })
+module.exports = { Lotus }
