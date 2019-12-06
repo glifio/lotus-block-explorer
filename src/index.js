@@ -43,7 +43,7 @@ class Lotus {
 
   getChainHead = () => this.lotusJSON('ChainHead');
 
-  visitBlock = block => {
+  visitBlock = (block, fromHeight) => {
     if (block.Parents) {
       return Promise.all(
         block.Parents.map(async parent => {
@@ -57,7 +57,9 @@ class Lotus {
           ]);
           parentBlock.Messages = messages;
           this.cacheBlock(parentBlock);
-          return this.visitBlock(parentBlock);
+          if (parentBlock.Height > fromHeight) {
+            return this.visitBlock(parentBlock, fromHeight);
+          }
         })
       );
     }
@@ -82,8 +84,8 @@ class Lotus {
 
     if (from > to) throw new Error('fromHeight must be less than toHeight');
 
-    const tipset = await this.getChainHead(from, {});
-    await Promise.all(tipset.Blocks.map(block => this.visitBlock(block)));
+    const tipset = await this.getChainHead();
+    await Promise.all(tipset.Blocks.map(block => this.visitBlock(block, from)));
   };
 }
 
