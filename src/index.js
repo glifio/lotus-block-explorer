@@ -15,13 +15,14 @@ const setFromHeight = (height) => {
 }
 
 class Lotus {
-  constructor() {
+  constructor({jsonrpcEndpoint}) {
     this.cache = {};
     this.seenParents = new Set();
+    this.jsonrpcEndpoint = jsonrpcEndpoint || 'http://127.0.0.1:1234/rpc/v0';
   }
 
   lotusJSON = async (method, ...params) => {
-    const { data } = await axios.post('http://127.0.0.1:1234/rpc/v0', {
+    const { data } = await axios.post(this.jsonrpcEndpoint, {
       jsonrpc: '2.0',
       method: `Filecoin.${method}`,
       params: [...params],
