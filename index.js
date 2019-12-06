@@ -1,4 +1,5 @@
 const axios = require('axios')
+const { uuid } = require('uuidv4');
 
 const setToHeight = (height) => {
   if (!height) return 'latest'
@@ -16,8 +17,8 @@ const setFromHeight = (height) => {
 
 class Lotus {
   constructor() {
-    this.database = {}
-    this.seenParents = new Set()
+    this.cache = {};
+    this.seenParents = new Set();
   }
 
   lotusJSON = async (method, ...params) => {
@@ -25,71 +26,76 @@ class Lotus {
       jsonrpc: '2.0',
       method: `Filecoin.${method}`,
       params: [...params],
-      id: 1
-    })
-    return data.result
-  }
+      id: uuid(),
+    });
+    return data.result;
+  };
 
-  addBlockToDatabase = (block) => {
-    if (this.database[block.Height]) {
-      this.database[block.Height].push(block)
+  cacheBlock = block => {
+    if (this.cache[block.Height]) {
+      this.cache[block.Height].push(block);
     } else {
-      this.database[block.Height] = [block]
+      this.cache[block.Height] = [block];
     }
-  }
+  };
 
-  getBlock = async (blockHash) => {
-    const block = await this.lotusJSON('ChainGetBlock', blockHash)
-    block.Cid = blockHash
-    return block
-  }
+  getBlockMessages = messageHash =>
+    this.lotusJSON('ChainGetBlockMessages', messageHash);
 
-  getBlockMessages = (messageHash) => this.lotusJSON('ChainGetBlockMessages', messageHash)
-  getChainHead = () => this.lotusJSON('ChainHead')
+  getChainHead = () => this.lotusJSON('ChainHead');
 
-  visitBlock = (block) => {
+  visitBlock = block => {
     if (block.Parents) {
-      return Promise.all(block.Parents.map(async parent => {
-        if (this.seenParents.has(parent['/'])) {
-          return
-        }
-        this.seenParents.add(parent['/'])
-        const [parentBlock, messages] = await Promise.all([
-          await this.getBlock(parent), await this.getBlockMessages(parent)
-        ])
-        parentBlock.Messages = messages
-        this.addBlockToDatabase(parentBlock)
-        return this.visitBlock(parentBlock)
-      }))
+      return Promise.all(
+        block.Parents.map(async parent => {
+          if (this.seenParents.has(parent['/'])) {
+            return;
+          }
+          this.seenParents.add(parent['/']);
+          const [parentBlock, messages] = await Promise.all([
+            await this.getBlock(parent),
+            await this.getBlockMessages(parent),
+          ]);
+          parentBlock.Messages = messages;
+          this.cacheBlock(parentBlock);
+          return this.visitBlock(parentBlock);
+        })
+      );
     }
-  }
+  };
+
+  getBlock = async blockHash => {
+    const block = await this.lotusJSON('ChainGetBlock', blockHash);
+    block.Cid = blockHash;
+    return block;
+  };
 
   explore = async (options = {}) => {
-    const from = setFromHeight(options.fromHeight)
-    const to = setToHeight(options.toHeight)
+    const from = setFromHeight(options.fromHeight);
+    const to = setToHeight(options.toHeight);
 
     // follow web3.js pattern of allowing 'latest' for a param, which starts at the chain head
     if (to === 'latest') {
-      const { Height } = await this.getChainHead()
+      const { Height } = await this.getChainHead();
       // n - 1 is the first "valid" block, so explore from the latest height - 1
-      return this.explore({ toHeight: Height - 1, fromHeight: from })
+      return this.explore({ toHeight: Height - 1, fromHeight: from });
     }
 
-    if (from > to) throw new Error('fromHeight must be less than toHeight')
+    if (from > to) throw new Error('fromHeight must be less than toHeight');
 
-    const tipset = await this.getChainHead(from, {})
-    await Promise.all(tipset.Blocks.map(block => this.visitBlock(block)))
-  }
+    const tipset = await this.getChainHead(from, {});
+    await Promise.all(tipset.Blocks.map(block => this.visitBlock(block)));
+  };
 }
 
 const lotus = new Lotus()
 
-const doIt = async () => {
+const explore = async () => {
   await lotus.explore()
   console.log(lotus.database)
 }
 
-doIt()
+explore()
 /*
 for now stubbing these because i can't get it to work yet
 const getTipsetByHeight = (height) => lotusJSON('ChainGetTipSetByHeight', 500, {height: 200, cids: [], blks: []})
