@@ -30,11 +30,15 @@ const shapeBlock = (block) => {
       parents: block.Parents,
       parentWeight: block.ParentWeight,
       height: block.Height,
+      messages,
       timestamp: block.Timestamp,
       blocksig: block.BlockSig.Data,
+      messageReceipts: block.messageReceipts,
+      stateRoot: block.stateRoot,
+      proof: block.EPostProof.Proof
     },
     messages: messages,
-    messageReceipts: [],
+    messageReceipts: block.messageReceipts,
   };
   return shapedBlock
 }
@@ -73,6 +77,8 @@ class Lotus {
 
   getChainHead = () => this.lotusJSON('ChainHead');
 
+  getParentReceipts = (receiptHash) => this.lotusJSON('ChainGetParentReceipts', receiptHash)
+
   visitBlock = (block, fromHeight) => {
     if (block.Parents) {
       return Promise.all(
@@ -81,11 +87,14 @@ class Lotus {
             return;
           }
           this.seenParents.add(parent['/']);
-          const [parentBlock, messages] = await Promise.all([
+          const [parentBlock, messages, messageReceipts] = await Promise.all([
             await this.getBlock(parent),
             await this.getBlockMessages(parent),
+            await this.getParentReceipts(block.ParentMessageReceipts),
           ]);
           parentBlock.Messages = messages;
+          parentBlock.messageReceipts = messageReceipts;
+          parentBlock.stateRoot = block.ParentStateRoot;
           this.cacheBlock(parentBlock);
           if (parentBlock.Height > fromHeight) {
             return this.visitBlock(parentBlock, fromHeight);
@@ -98,7 +107,7 @@ class Lotus {
   getBlock = async blockHash => {
     const block = await this.lotusJSON('ChainGetBlock', blockHash);
     // add the block's cid back onto the block metadata for ease of use
-    block.cid = blockHash;
+    block.cid = blockHash['/'];
     return block;
   };
 
