@@ -12,6 +12,7 @@
     "build": "npm run build-node && npm run build-browser && npm run build-module",
     "prepublishOnly": "npm run build",
     "test": "npm run build && mocha",
+    "write:actors:to:repo": "npm run build && node scripts/writeActorsToRepoCache.js",
     "write:blocks:to:repo": "npm run build && node scripts/writeBlocksToRepoCache.js"
   },
   "author": "",

@@ -43,13 +43,24 @@ const shapeBlock = (block) => {
   return shapedBlock
 }
 
+const lowercaseActorProps = (actor) => {
+  return {
+    address: actor.address,
+    code: actor.Code,
+    head: actor.Head,
+    nonce: actor.Nonce,
+    balance: actor.Balance
+  }
+}
+
 class Lotus {
-  constructor({ jsonrpcEndpoint } = {}) {
+  constructor({ jsonrpcEndpoint, token } = {}) {
     this.cache = {};
     this.seenBlocks = new Set();
     this.seenHeights = new Set();
     this.blocksToView = [];
     this.jsonrpcEndpoint = jsonrpcEndpoint || 'http://127.0.0.1:1234/rpc/v0';
+    this.token = token;
   }
 
   lotusJSON = async (method, ...params) => {
@@ -58,6 +69,10 @@ class Lotus {
       method: `Filecoin.${method}`,
       params: [...params],
       id: 1,
+    }, {
+      headers: {
+        Authorization: `Bearer ${this.token}`
+      }
     });
     return data.result;
   };
@@ -74,14 +89,21 @@ class Lotus {
     return this.cache
   }
 
-  getBlockMessages = messageHash =>
-    this.lotusJSON('ChainGetBlockMessages', messageHash);
+  getBlockMessages = cid =>
+    this.lotusJSON('ChainGetBlockMessages', cid);
 
   getTipSetByHeight = height => this.lotusJSON('ChainGetTipSetByHeight', height, null);
 
   getChainHead = () => this.lotusJSON('ChainHead');
 
-  getParentReceipts = (receiptHash) => this.lotusJSON('ChainGetParentReceipts', receiptHash)
+  getParentReceipts = cid => this.lotusJSON('ChainGetParentReceipts', cid)
+
+  listActors = () => this.lotusJSON('StateListActors', null)
+
+  getActor = async (address) => {
+    const actor = await this.lotusJSON('StateGetActor', address, null)
+    return lowercaseActorProps({ ...actor, address })
+  }
 
   getNextBlocksFromParents = (block) => {
     return Promise.all(
@@ -103,12 +125,13 @@ class Lotus {
     const tipset = await this.getTipSetByHeight(height)
     // make sure we dont fetch by this height again
     this.seenHeights.add(height)
-    // add the Cid prop to the block header for ease of use later on
     return tipset.Blocks
+      // make sure we dont visit blocks we've already seen
       .filter((_, i) => !this.seenBlocks.has(tipset.Cids[i]['/']))
       .map((block, i) => {
+        // add the Cid prop to the block header for ease of use later on
         this.seenBlocks.add(tipset.Cids[i]['/']);
-        return { ...block, cid: tipset.Cids[i] }
+        return { ...block, cid: tipset.Cids[i] };
       })
     }
 
