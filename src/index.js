@@ -23,7 +23,7 @@ const shapeBlock = (block) => {
   ];
 
   const shapedBlock = {
-    cid: block.cid,
+    cid: block.cid['/'],
     header: {
       miner: block.Miner,
       tickets: [block.Ticket],
@@ -46,7 +46,9 @@ const shapeBlock = (block) => {
 class Lotus {
   constructor({ jsonrpcEndpoint } = {}) {
     this.cache = {};
-    this.seenParents = new Set();
+    this.seenBlocks = new Set();
+    this.seenHeights = new Set();
+    this.blocksToView = [];
     this.jsonrpcEndpoint = jsonrpcEndpoint || 'http://127.0.0.1:1234/rpc/v0';
   }
 
@@ -60,11 +62,11 @@ class Lotus {
     return data.result;
   };
 
-  cacheBlock = block => {
+  cacheBlock = (block) => {
     if (this.cache[block.Height]) {
       this.cache[block.Height].push(shapeBlock(block));
     } else {
-      this.cache[block.Height] = [shapeBlock(block)];
+      this.cache[block.Height] = [shapeBlock(block)]
     }
   };
 
@@ -75,34 +77,40 @@ class Lotus {
   getBlockMessages = messageHash =>
     this.lotusJSON('ChainGetBlockMessages', messageHash);
 
+  getTipSetByHeight = height => this.lotusJSON('ChainGetTipSetByHeight', height, null);
+
   getChainHead = () => this.lotusJSON('ChainHead');
 
   getParentReceipts = (receiptHash) => this.lotusJSON('ChainGetParentReceipts', receiptHash)
 
-  visitBlock = (block, fromHeight) => {
-    if (block.Parents) {
-      return Promise.all(
-        block.Parents.map(async parent => {
-          if (this.seenParents.has(parent['/'])) {
-            return;
-          }
-          this.seenParents.add(parent['/']);
-          const [parentBlock, messages, messageReceipts] = await Promise.all([
-            await this.getBlock(parent),
-            await this.getBlockMessages(parent),
-            await this.getParentReceipts(block.ParentMessageReceipts),
-          ]);
-          parentBlock.Messages = messages;
-          parentBlock.messageReceipts = messageReceipts;
-          parentBlock.stateRoot = block.ParentStateRoot;
-          this.cacheBlock(parentBlock);
-          if (parentBlock.Height > fromHeight) {
-            return this.visitBlock(parentBlock, fromHeight);
-          }
+  getNextBlocksFromParents = (block) => {
+    return Promise.all(
+      block.Parents
+        // make sure we dont visit any parents we've already seen
+        .filter(parent => !this.seenBlocks.has(parent['/']))
+        .map(async parent => {
+          this.seenBlocks.add(parent['/']);
+          const parentBlock = await this.getBlock(parent)
+          parentBlock.cid = parent
+          return parentBlock
         })
-      );
+    )
+  }
+
+  // fetches the tipset, creates a placeholder , visits each block in the tipset
+  getNextBlocksFromTipsetByHeight = async (height) => {
+    // get the tipset from the height we havent seen yet
+    const tipset = await this.getTipSetByHeight(height)
+    // make sure we dont fetch by this height again
+    this.seenHeights.add(height)
+    // add the Cid prop to the block header for ease of use later on
+    return tipset.Blocks
+      .filter((_, i) => !this.seenBlocks.has(tipset.Cids[i]['/']))
+      .map((block, i) => {
+        this.seenBlocks.add(tipset.Cids[i]['/']);
+        return { ...block, cid: tipset.Cids[i] }
+      })
     }
-  };
 
   getBlock = async blockHash => {
     const block = await this.lotusJSON('ChainGetBlock', blockHash);
@@ -111,21 +119,59 @@ class Lotus {
     return block;
   };
 
+  addBlocksToViewList = async block => {
+    if (block.Height > this.fromHeight) {
+      // if we havent visited other blocks in this tipset, get the blocks directly from tipset
+      if (!this.seenHeights.has(block.Height)) {
+        this.blocksToView = this.blocksToView.concat(await this.getNextBlocksFromTipsetByHeight(block.Height))
+      }
+
+      // visit this block's parents
+      if (block.Parents.length > 0) {
+        this.blocksToView = this.blocksToView.concat(await this.getNextBlocksFromParents(block))
+      }
+    }
+  }
+
+  viewBlock = async (block) => {
+    // shape and cache the blocks in the list
+    const messages = await this.getBlockMessages(block.cid)
+    block.Messages = messages
+    // mark this block as seen
+    this.cacheBlock(block)
+  }
+
+  recurse = async () => {
+    while (this.blocksToView.length > 0) {
+      // view blocks from right to left so we dont have to keep rebuilding the array
+      const block = this.blocksToView.pop()
+      await this.viewBlock(block)
+      await this.addBlocksToViewList(block)
+    }
+  }
+
   explore = async (options = {}) => {
-    const from = setFromHeight(options.fromHeight);
-    const to = setToHeight(options.toHeight);
+    this.toHeight = setToHeight(options.toHeight);
+    this.fromHeight = setFromHeight(options.fromHeight)
 
     // follow web3.js pattern of allowing 'latest' for a param, which starts at the chain head
-    if (to === 'latest') {
+    if (this.toHeight === 'latest') {
       const { Height } = await this.getChainHead();
       // n - 1 is the first "valid" block, so explore from the latest height - 1
-      return this.explore({ toHeight: Height - 1, fromHeight: from });
+      return this.explore({ toHeight: Height - 1, fromHeight: setFromHeight.call(this, this.fromHeight) });
     }
 
-    if (from > to) throw new Error('fromHeight must be less than toHeight');
+    if (this.fromHeight > this.toHeight) throw new Error('fromHeight must be less than toHeight');
 
-    const tipset = await this.getChainHead();
-    await Promise.all(tipset.Blocks.map(block => this.visitBlock(block, from)));
+    // loop through all the tipsets sfrom from to so we dont miss any heights
+    for (let i = this.toHeight; i >= this.fromHeight; i--) {
+      this.blocksToView.push(
+        ...(await this.getNextBlocksFromTipsetByHeight(i))
+      );
+    }
+    await Promise.all(this.blocksToView)
+    await this.recurse()
+    return this.getChain()
   };
 }
 
