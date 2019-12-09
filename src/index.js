@@ -34,7 +34,7 @@ const shapeBlock = (block) => {
       timestamp: block.Timestamp,
       blocksig: block.BlockSig.Data,
       messageReceipts: block.messageReceipts,
-      stateRoot: block.stateRoot,
+      stateRoot: block.ParentStateRoot,
       proof: block.EPostProof.Proof
     },
     messages: messages,
@@ -43,13 +43,33 @@ const shapeBlock = (block) => {
   return shapedBlock
 }
 
-const lowercaseActorProps = (actor) => {
+const actorTypes = {
+  bafkqadlgnfwc6mjpmfrwg33vnz2a: 'Account',
+  bafkqactgnfwc6mjpmnzg63q: 'Cron',
+  bafkqac3gnfwc6mjpobxxozls: 'Storage Power',
+  bafkqaddgnfwc6mjpnvqxe23foq: 'Storage Market',
+  bafkqac3gnfwc6mjpnvuw4zls: 'Storage Miner',
+  bafkqadtgnfwc6mjpnv2wy5djonuwo: 'Multisig',
+  bafkqactgnfwc6mjpnfxgs5a: 'Init',
+  bafkqac3gnfwc6mjpobqxsy3i: 'Payment Channel',
+}
+
+const shapeActorProps = (actor) => {
   return {
     address: actor.address,
     code: actor.Code,
     head: actor.Head,
     nonce: actor.Nonce,
-    balance: actor.Balance
+    balance: actor.Balance,
+    actorType: actorTypes[actor.Code['/']] || 'Unknown actor type'
+  }
+}
+
+const shapeMessageReceipt = (messageReceipt) => {
+  return {
+    return: messageReceipt.Return,
+    gasUsed: messageReceipt.GasUsed,
+    exitCode: messageReceipt.ExitCode,
   }
 }
 
@@ -102,7 +122,7 @@ class Lotus {
 
   getActor = async (address) => {
     const actor = await this.lotusJSON('StateGetActor', address, null)
-    return lowercaseActorProps({ ...actor, address })
+    return shapeActorProps({ ...actor, address })
   }
 
   getNextBlocksFromParents = (block) => {
@@ -159,7 +179,9 @@ class Lotus {
   viewBlock = async (block) => {
     // shape and cache the blocks in the list
     const messages = await this.getBlockMessages(block.cid)
+    const parentMessageReceipts = await this.getParentReceipts(block.cid)
     block.Messages = messages
+    block.messageReceipts = parentMessageReceipts ? parentMessageReceipts.map(shapeMessageReceipt) : []
     // mark this block as seen
     this.cacheBlock(block)
   }
