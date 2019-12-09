@@ -118,7 +118,13 @@ class Lotus {
 
   getParentReceipts = cid => this.lotusJSON('ChainGetParentReceipts', cid)
 
-  listActors = () => this.lotusJSON('StateListActors', null)
+  listActors = async () => {
+    const actors = await this.lotusJSON('StateListActors', null)
+    return Promise.all(actors.map(async (address) => {
+      const actor = await this.getActor(address);
+      return shapeActorProps(actor)
+    }))
+  }
 
   getActor = async (address) => {
     const actor = await this.lotusJSON('StateGetActor', address, null)
