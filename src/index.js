@@ -209,12 +209,12 @@ class Lotus {
     if (this.toHeight === 'latest') {
       const { Height } = await this.getChainHead();
       // n - 1 is the first "valid" block, so explore from the latest height - 1
-      return this.explore({ toHeight: Height - 1, fromHeight: setFromHeight.call(this, this.fromHeight) });
+      return this.explore({ toHeight: Height - 1, fromHeight: setFromHeight(this.fromHeight) });
     }
 
     if (this.fromHeight > this.toHeight) throw new Error('fromHeight must be less than toHeight');
 
-    // loop through all the tipsets sfrom from to so we dont miss any heights
+    // loop through all the tipsets from fromHeight to toHeight, so we don't miss any mainchain blocks
     for (let i = this.toHeight; i >= this.fromHeight; i--) {
       this.blocksToView.push(
         ...(await this.getNextBlocksFromTipsetByHeight(i))
