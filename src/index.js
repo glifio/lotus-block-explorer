@@ -1,16 +1,18 @@
 const axios = require('axios');
-const ObservableStore = require('obs-store')
+const ObservableStore = require('obs-store');
 
 const setToHeight = height => {
   if (!height) return 'latest';
-  if (typeof height === 'string' && typeof Number(height) === 'number') return Number(height);
+  if (typeof height === 'string' && typeof Number(height) === 'number')
+    return Number(height);
   if (typeof height === 'number') return height;
   throw new Error('unhandled setToHeight case');
 };
 
 const setFromHeight = height => {
   if (!height) return 0;
-  if (typeof height === 'string' && typeof Number(height) === 'number') return Number(height);
+  if (typeof height === 'string' && typeof Number(height) === 'number')
+    return Number(height);
   if (typeof height === 'number') return height;
   throw new Error('unhandled setFromHeight case');
 };
@@ -24,7 +26,7 @@ const shapeBlock = block => {
   ];
 
   const shapedBlock = {
-    cid: block.cid['/'],
+    cid: block.cid,
     header: {
       miner: block.Miner,
       tickets: [block.Ticket],
@@ -56,13 +58,18 @@ const actorTypes = {
 };
 
 const shapeActorProps = actor => {
+  const hasCode = actor.Code;
+  const actorType =
+    hasCode && actorTypes[actor.Code['/']]
+      ? actorTypes[actor.Code['/']]
+      : 'Unknown actor type';
   return {
     address: actor.address,
     code: actor.Code,
     head: actor.Head,
     nonce: actor.Nonce,
     balance: actor.Balance,
-    actorType: actorTypes[actor.Code['/']] || 'Unknown actor type',
+    actorType,
   };
 };
 
@@ -75,8 +82,8 @@ const shapeMessageReceipt = messageReceipt => {
 };
 
 class Lotus {
-  constructor({ jsonrpcEndpoint, token } = {}) {
-    this.store = new ObservableStore();
+  constructor({ jsonrpcEndpoint, token, initState } = {}) {
+    this.store = new ObservableStore(initState);
     this.seenBlocks = new Set();
     this.seenHeights = new Set();
     this.blocksToView = [];
@@ -94,44 +101,62 @@ class Lotus {
         method: `Filecoin.${method}`,
         params: [...params],
         id: 1,
+      },
+      {
+        headers: {
+          'Content-Type': 'text/plain;charset=UTF-8',
+          Accept: '*/*',
+        },
       }
     );
     return data.result;
   };
 
   cacheBlock = block => {
-    const chainInState = this.store.getState()
+    const shapedBlock = shapeBlock(block);
+    const chainInState = this.store.getState();
 
+    // first check to see if we have this height in our chain store
     if (chainInState[block.Height]) {
-      chainInState[block.Height].push(shapeBlock(block));
+      // then check to see if this block exists in our chain store
+      if (
+        chainInState[block.Height].every(
+          blockInState => blockInState.cid !== block.cid
+        )
+      ) {
+        chainInState[block.Height].push(shapedBlock);
+      }
     } else {
-      chainInState[block.Height] = [shapeBlock(block)];
+      chainInState[block.Height] = [shapedBlock];
     }
 
-    this.store.putState(chainInState)
+    this.store.putState(chainInState);
+    return shapedBlock;
   };
 
   getChain = () => {
     return this.store.getState();
   };
 
-  getLastPolledHeight = () => this.toHeight
+  getLastPolledHeight = () => this.toHeight;
 
-  getBlockMessages = cid => this.lotusJSON('ChainGetBlockMessages', cid);
+  getBlockMessages = cid =>
+    this.lotusJSON('ChainGetBlockMessages', { '/': cid });
 
   getTipSetByHeight = height =>
     this.lotusJSON('ChainGetTipSetByHeight', height, null);
 
   getChainHead = () => this.lotusJSON('ChainHead');
 
-  getParentReceipts = cid => this.lotusJSON('ChainGetParentReceipts', cid);
+  getParentReceipts = cid =>
+    this.lotusJSON('ChainGetParentReceipts', { '/': cid });
 
-  listActors = async () => {
+  listActors = async (to, from) => {
     const actors = await this.lotusJSON('StateListActors', null);
     return Promise.all(
-      actors.map(async address => {
+      actors.slice(to, from).map(async address => {
         const actor = await this.getActor(address);
-        return shapeActorProps(actor);
+        return actor;
       })
     );
   };
@@ -149,7 +174,7 @@ class Lotus {
         .map(async parent => {
           this.seenBlocks.add(parent['/']);
           const parentBlock = await this.getBlock(parent);
-          parentBlock.cid = parent;
+          parentBlock.cid = parent['/'];
           return parentBlock;
         })
     );
@@ -168,7 +193,7 @@ class Lotus {
         .map((block, i) => {
           // add the Cid prop to the block header for ease of use later on
           this.seenBlocks.add(tipset.Cids[i]['/']);
-          return { ...block, cid: tipset.Cids[i] };
+          return { ...block, cid: tipset.Cids[i]['/'] };
         })
     );
   };
@@ -207,7 +232,7 @@ class Lotus {
       ? parentMessageReceipts.map(shapeMessageReceipt)
       : [];
     // mark this block as seen
-    this.cacheBlock(block);
+    return this.cacheBlock(block);
   };
 
   recurse = async () => {
@@ -233,9 +258,10 @@ class Lotus {
       });
     }
 
-    if (this.fromHeight > this.toHeight) throw new Error('fromHeight must be less than toHeight');
+    if (this.fromHeight > this.toHeight)
+      throw new Error('fromHeight must be less than toHeight');
     // loop through all the tipsets from fromHeight to toHeight, so we don't miss any mainchain blocks
-    for (let i = this.toHeight; i >= this.fromHeight; i--) {
+    for (let i = this.fromHeight; i < this.toHeight; i++) {
       this.blocksToView.push(
         ...(await this.getNextBlocksFromTipsetByHeight(i))
       );
@@ -243,6 +269,20 @@ class Lotus {
     await Promise.all(this.blocksToView);
     await this.recurse();
     return this.toHeight;
+  };
+
+  loadNextBlocks = num => {
+    const prevFromHeight = this.fromHeight;
+    this.fromHeight = prevFromHeight - num;
+    return this.explore({
+      fromHeight: prevFromHeight - num,
+      toHeight: prevFromHeight,
+    });
+  };
+
+  loadSingleBlock = async cid => {
+    const block = await this.getBlock({ '/': cid });
+    return this.viewBlock(block);
   };
 
   poll = async () => {
@@ -258,13 +298,17 @@ class Lotus {
     }
 
     this.poller = setTimeout(async () => {
-      await this.poll()
-    }, 100);
-  }
+      await this.poll();
+    }, 3000);
+  };
 
   listen = () => {
-    this.poll()
-  }
+    this.poll();
+  };
+
+  stopListening = () => {
+    this.poller = null;
+  };
 }
 
 module.exports = { Lotus, shapeBlock };
