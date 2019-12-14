@@ -228,9 +228,7 @@ class Lotus {
     const messages = await this.getBlockMessages(block.cid);
     const parentMessageReceipts = await this.getParentReceipts(block.cid);
     block.Messages = messages;
-    block.messageReceipts = parentMessageReceipts
-      ? parentMessageReceipts.map(shapeMessageReceipt)
-      : [];
+    block.messageReceipts = parentMessageReceipts ? parentMessageReceipts.map(shapeMessageReceipt) : [];
     // mark this block as seen
     return this.cacheBlock(block);
   };
@@ -271,13 +269,22 @@ class Lotus {
     return this.toHeight;
   };
 
-  loadNextBlocks = num => {
+  loadNextBlocks = async num => {
     const prevFromHeight = this.fromHeight;
+
+    for (let i = prevFromHeight - num; i < prevFromHeight; i++) {
+      this.blocksToView.push(
+        ...(await this.getNextBlocksFromTipsetByHeight(i))
+      );
+    }
+    // if we attempt to load blocks but none are found, increase the bounds
+    if (this.blocksToView.length === 0) {
+      return this.loadNextBlocks(num + 3)
+    }
     this.fromHeight = prevFromHeight - num;
-    return this.explore({
-      fromHeight: prevFromHeight - num,
-      toHeight: prevFromHeight,
-    });
+
+    await Promise.all(this.blocksToView);
+    await this.recurse();
   };
 
   loadSingleBlock = async cid => {
