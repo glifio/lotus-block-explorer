@@ -180,10 +180,22 @@ class Lotus {
     );
   };
 
+  handleEmptyTipset = height => {
+    const chainInState = this.store.getState();
+    chainInState[height] = null
+    this.store.putState(chainInState)
+  }
+
   // fetches the tipset, creates a placeholder , visits each block in the tipset
   getNextBlocksFromTipsetByHeight = async height => {
     // get the tipset from the height we havent seen yet
     const tipset = await this.getTipSetByHeight(height);
+    // if the tipset has empty blocks handle that separately
+    if (tipset.Height !== height) {
+      this.handleEmptyTipset(height)
+      return []
+    }
+
     // make sure we dont fetch by this height again
     this.seenHeights.add(height);
     return (
