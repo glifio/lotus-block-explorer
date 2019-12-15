@@ -1,6 +1,6 @@
 {
   "name": "@openworklabs/lotus-block-explorer",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "a javascript package to construct the lotus chain in javascript",
   "main": "./dist/index.js",
   "browser": "./lib/index.js",
