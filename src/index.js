@@ -182,9 +182,9 @@ class Lotus {
 
   handleEmptyTipset = height => {
     const chainInState = this.store.getState();
-    chainInState[height] = null
-    this.store.putState(chainInState)
-  }
+    chainInState[height] = null;
+    this.store.putState(chainInState);
+  };
 
   // fetches the tipset, creates a placeholder , visits each block in the tipset
   getNextBlocksFromTipsetByHeight = async height => {
@@ -192,8 +192,8 @@ class Lotus {
     const tipset = await this.getTipSetByHeight(height);
     // if the tipset has empty blocks handle that separately
     if (tipset.Height !== height) {
-      this.handleEmptyTipset(height)
-      return []
+      this.handleEmptyTipset(height);
+      return [];
     }
 
     // make sure we dont fetch by this height again
@@ -240,7 +240,9 @@ class Lotus {
     const messages = await this.getBlockMessages(block.cid);
     const parentMessageReceipts = await this.getParentReceipts(block.cid);
     block.Messages = messages;
-    block.messageReceipts = parentMessageReceipts ? parentMessageReceipts.map(shapeMessageReceipt) : [];
+    block.messageReceipts = parentMessageReceipts
+      ? parentMessageReceipts.map(shapeMessageReceipt)
+      : [];
     // mark this block as seen
     return this.cacheBlock(block);
   };
@@ -291,7 +293,7 @@ class Lotus {
     }
     // if we attempt to load blocks but none are found, increase the bounds
     if (this.blocksToView.length === 0) {
-      return this.loadNextBlocks(num + 3)
+      return this.loadNextBlocks(num + 3);
     }
     this.fromHeight = prevFromHeight - num;
 
