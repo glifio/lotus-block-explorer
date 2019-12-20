@@ -4,14 +4,48 @@ A javascript module for exploring lotus running locally on your machine. See the
 
 `npm i @openworklabs/lotus-block-explorer`<br />
 
+## Basic exploration
+
 ```js
 const lotus = new Lotus({ token: '<your-jwt-token>' })
 
-await lotus.explore()
-console.log(lotus.getChain()) // prints the chain fromHeight <> toHeight
+const chainUpdateCallback = chainState => {
+  // will log the updated chain state any time new blocks are explored
+  console.log(chainState)
+}
 
-const actors = await lotus.listActors()
-console.log(actors) // prints all the actors along with their nonce, balance, and types
+// subscribe to chain updates
+lotus.store.subscribe(chainUpdateCallback)
+
+// start exploring Lotus heights
+await lotus.explore({ toHeight: 'latest', fromHeight: '0' })
+
+// get the current chain state
+const currentChainState = lotus.store.getState()
+
+// when you're done, stop listening for updates
+lotus.store.unsubscribe(chainUpdateCallback)
+```
+
+## Chain Listening
+
+```js
+const lotus = new Lotus({ token: '<your-jwt-token>' })
+
+const chainUpdateCallback = chainState => {
+  // will log the updated chain state any time new blocks are explored
+  console.log(chainState)
+}
+
+// subscribe to chain updates
+lotus.store.subscribe(chainUpdateCallback)
+
+// poll lotus for new tipsets to add to the in-memory chain store
+lotus.listen()
+
+// cancel listeners
+lotus.stopListening()
+lotus.store.unsubscribe(chainUpdateCallback)
 ```
 
 ### Constructor options
@@ -34,4 +68,4 @@ await lotus.explore({
 
 ### CORS
 
-If you're running this package in the browser, you will need to figure out a way to get around cors. The easiest way is to configure your own proxy server around Lotus, and explicitly handle preflight `options` requests via the proxy server.
+If you're running this package in a [Create React App](https://create-react-app.dev/), for development purposes you can proxy api requests. [More info](https://create-react-app.dev/docs/proxying-api-requests-in-development/). When it comes to production or other browser use cases, you will need to set Lotus behind a proxy like [NGNIX](https://www.nginx.com/). Here is a sample docker container: https://github.com/RTradeLtd/lotus-infra
